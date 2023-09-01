@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otimização de Rotas</title>
+    <!-- Adicione os links para o Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="mt-5">Otimização de Rotas</h1>
+        <form method="POST" class="mt-4">
+            <div class="form-group">
+                <label for="coordenadas">Coordenadas (latitude, longitude):</label>
+                <input type="text" id="coordenadas" name="coordenadas" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">Adicionar Local de Entrega</button>
+            <a href="{{ url_for('limpar_locais') }}" class="btn btn-danger mt-2">Apagar Locais de Entrega</a>
+            <a href="{{ url_for('rota') }}" class="btn btn-success mt-2">Otimizar Rota</a>
+        </form>
+        <h2 class="mt-4">Locais de Entrega Adicionados:</h2>
+        <ul>
+            {% for coordenadas in locais_entrega_temp %}
+            <li>{{ coordenadas }}</li>
+            {% endfor %}
+        </ul>
+        <h2>Resultado:</h2>
+        {% if resultado %}
+        <p>{{ resultado }}</p>
+        {% if link_google_maps %}
+        <p><a href="{{ link_google_maps }}" target="_blank" class="btn btn-success">Ver Rota no Google Maps</a></p>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Adicione os scripts do Bootstrap JS no final do corpo -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
