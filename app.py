@@ -1,80 +1,119 @@
-from flask import Flask, render_template, request, redirect, url_for
-
-import googlemaps
+import requests
+from flask import Flask, request, render_template, jsonify
+from itertools import permutations
 
 app = Flask(__name__)
 
-# Substitua 'SUA_CHAVE_DE_API' pela sua chave de API do Google Maps
-chave_api = 'AIzaSyAGDNNmzbgBpZFCF5GNm9nMzLv_2lNeygw'
+# Chave da API do Google Maps (substitua com a sua própria chave)
+API_KEY = 'AIzaSyAGDNNmzbgBpZFCF5GNm9nMzLv_2lNeygw'
 
-locais_entrega_temp = []  # Lista temporária para armazenar as coordenadas de entrega
+# Coordenadas do ponto de partida (exemplo)
+local_partida = (-23.694179107549026, -46.605410054686395)
+origin = f"{local_partida[0]},{local_partida[1]}"
 
-# Coordenadas do local de partida (geralmente o depósito)
-local_partida = (-23.694191776643493, -46.605377959371594)
-
-# Coordenadas do local de chegada (destino final)
-# Substitua pelas coordenadas reais
-local_chegada = (-23.694191776643493, -46.605377959371594)
-
-
-def adicionar_local_entrega(coordenadas):
-    locais_entrega_temp.append(coordenadas)
-
-
-def otimizar_rota():
-    if not locais_entrega_temp:
-        return "Por favor, insira as coordenadas de entrega.", None
-
-    cliente = googlemaps.Client(key=chave_api)
-
-    try:
-        destinos = locais_entrega_temp.copy()
-        destinos.insert(0, local_partida)
-        destinos.append(local_chegada)
-
-        rota_otimizada = cliente.directions(
-            origin=str(local_partida[0]) + ',' + str(local_partida[1]),
-            destination=str(local_chegada[0]) + ',' + str(local_chegada[1]),
-            mode='driving',
-            waypoints=destinos[1:-1],
-            optimize_waypoints=True
-        )
-
-        if rota_otimizada:
-            distancia_total = 0
-
-            # Calcule a distância total percorrendo as etapas da rota
-            for step in rota_otimizada[0]['legs']:
-                distancia_total += step['distance']['value']  # Em metros
-
-            # Converta a distância total para quilômetros
-            distancia_total_km = distancia_total / 1000
-
-            # Gere o link do Google Maps
-            link_google_maps = 'https://www.google.com/maps/dir/?api=1&origin=' + str(local_partida[0]) + ',' + str(local_partida[1]) + \
-                '&destination=' + str(local_chegada[0]) + ',' + str(local_chegada[1]) + \
-                '&waypoints=' + '|'.join(destinos[1:-1])
-
-            return distancia_total_km, link_google_maps
-        else:
-            return "Não foi possível encontrar uma rota otimizada.", None
-    except Exception as e:
-        return f"Erro ao otimizar a rota: {str(e)}", None
+# Lista para armazenar os endereços adicionados
+enderecos_adicionados = []
 
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        coordenadas = request.form.get('coordenadas')
-        if coordenadas:
-            adicionar_local_entrega(coordenadas)
-    return render_template('index.html', locais_entrega_temp=locais_entrega_temp)
+        enderecos = request.form.getlist('endereco')
+
+        if enderecos:
+            waypoints_str = '|'.join([get_coordinates(endereco)
+                                      for endereco in enderecos])
+
+            directions_url = f'https://maps.googleapis.com/maps/api/directions/json?origin={origin}&destination={origin}&waypoints={waypoints_str}&key={API_KEY}'
+
+            response = requests.get(directions_url)
+            data = response.json()
+
+            if data['status'] == 'OK':
+                tempo_rota_total = 0
+                quilometragem_total_metros = 0
+
+                for leg in data['routes'][0]['legs']:
+                    tempo_rota_total += leg['duration']['value']  # em segundos
+                    # em metros
+                    quilometragem_total_metros += leg['distance']['value']
+
+                tempo_rota = f"{int(tempo_rota_total / 60)} minutos"
+                quilometragem_total = f"{round(quilometragem_total_metros / 1000, 2)} km"
+
+                optimized_waypoints = data['routes'][0]['waypoint_order']
+                waypoints = [enderecos[i] for i in optimized_waypoints]
+
+                route_summary = data['routes'][0]['summary']
+                encoded_route = data['routes'][0]['overview_polyline']['points']
+                map_url = f'https://www.google.com/maps/dir/?api=1&origin={origin}&destination={origin}&waypoints={"|".join(waypoints)}'
+
+                return render_template('index.html', tempo_rota=tempo_rota, quilometragem_total=quilometragem_total, map_url=map_url, enderecos_adicionados=enderecos_adicionados)
+
+    return render_template('index.html', tempo_rota=None, quilometragem_total=None, map_url=None, api_key=API_KEY, enderecos_adicionados=enderecos_adicionados)
 
 
-@app.route('/otimizar_rota', methods=['GET'])
-def rota():
-    resultado, link_google_maps = otimizar_rota()
-    return render_template('index.html', locais_entrega_temp=locais_entrega_temp, resultado=resultado, link_google_maps=link_google_maps)
+@app.route('/adicionar_endereco', methods=['POST'])
+def adicionar_endereco():
+    endereco = request.form.get('endereco')
+    if endereco:
+        enderecos_adicionados.append(endereco)
+    return jsonify({'success': True})
+
+
+@app.route('/calcular_rota', methods=['POST'])
+def calcular_rota():
+    data = request.get_json()
+    enderecos = data.get('enderecos', [])
+
+    if enderecos:
+        # Gere todas as permutações possíveis dos endereços para encontrar a rota mais rápida
+        melhor_rota = None
+        menor_tempo = float('inf')
+
+        for permutacao in permutations(enderecos):
+            waypoints_str = '|'.join([get_coordinates(endereco)
+                                     for endereco in permutacao])
+            directions_url = f'https://maps.googleapis.com/maps/api/directions/json?origin={origin}&destination={origin}&waypoints={waypoints_str}&key={API_KEY}'
+
+            response = requests.get(directions_url)
+            data = response.json()
+
+            if data['status'] == 'OK':
+                tempo_rota_total = 0
+
+                for leg in data['routes'][0]['legs']:
+                    tempo_rota_total += leg['duration']['value']  # em segundos
+
+                if tempo_rota_total < menor_tempo:
+                    menor_tempo = tempo_rota_total
+                    melhor_rota = permutacao
+
+        if melhor_rota:
+            waypoints_str = '|'.join([get_coordinates(endereco)
+                                     for endereco in melhor_rota])
+            directions_url = f'https://maps.googleapis.com/maps/api/directions/json?origin={origin}&destination={origin}&waypoints={waypoints_str}&key={API_KEY}'
+            response = requests.get(directions_url)
+            data = response.json()
+
+            if data['status'] == 'OK':
+                optimized_waypoints = data['routes'][0]['waypoint_order']
+                waypoints = [melhor_rota[i] for i in optimized_waypoints]
+
+                map_url = f'https://www.google.com/maps/dir/?api=1&origin={origin}&destination={origin}&waypoints={"|".join(waypoints)}'
+                return jsonify({'map_url': map_url})
+
+    return jsonify({'map_url': None})
+
+
+def get_coordinates(address):
+    geocoding_url = f'https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={API_KEY}'
+    response = requests.get(geocoding_url)
+    data = response.json()
+    if data['status'] == 'OK' and len(data['results']) > 0:
+        location = data['results'][0]['geometry']['location']
+        return f"{location['lat']},{location['lng']}"
+    return ""
 
 
 if __name__ == '__main__':

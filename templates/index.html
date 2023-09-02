@@ -1,45 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Otimização de Rotas</title>
-    <!-- Adicione os links para o Bootstrap CSS -->
+    <title>Calculadora de Rotas</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 
 <body>
-    <div class="container">
-        <h1 class="mt-5">Otimização de Rotas</h1>
-        <form method="POST" class="mt-4">
-            <div class="form-group">
-                <label for="coordenadas">Coordenadas (latitude, longitude):</label>
-                <input type="text" id="coordenadas" name="coordenadas" class="form-control">
+    <div class="container mt-5">
+        <h1 class="mb-4">Calculadora de Rotas</h1>
+
+        <form method="POST" class="mb-4">
+            <div class="input-group">
+                <input type="text" id="endereco" name="endereco" class="form-control" placeholder="Digite o endereço">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-primary">Adicionar Endereço</button>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary">Adicionar Local de Entrega</button>
-            <a href="{{ url_for('limpar_locais') }}" class="btn btn-danger mt-2">Apagar Locais de Entrega</a>
-            <a href="{{ url_for('rota') }}" class="btn btn-success mt-2">Otimizar Rota</a>
         </form>
-        <h2 class="mt-4">Locais de Entrega Adicionados:</h2>
-        <ul>
-            {% for coordenadas in locais_entrega_temp %}
-            <li>{{ coordenadas }}</li>
-            {% endfor %}
+
+        <h2>Endereços Adicionados:</h2>
+        <ul id="listaEnderecos">
+            <!-- Lista de endereços adicionados será preenchida dinamicamente aqui -->
         </ul>
-        <h2>Resultado:</h2>
-        {% if resultado %}
-        <p>{{ resultado }}</p>
-        {% if link_google_maps %}
-        <p><a href="{{ link_google_maps }}" target="_blank" class="btn btn-success">Ver Rota no Google Maps</a></p>
+
+        {% if map_url %}
+        <h2>Rota Otimizada:</h2>
+        <p>Tempo estimado: {{ tempo_rota }}</p>
+        <p>Distância total: {{ quilometragem_total }}</p>
+        <a href="{{ map_url }}" class="btn btn-success" target="_blank">Ver Rota no Google Maps</a>
         {% endif %}
-        {% endif %}
+
+        <!-- Botão "Calcular Rota" -->
+        <button id="calcularRota" class="btn btn-primary mt-4">Calcular Rota</button>
     </div>
 
-    <!-- Adicione os scripts do Bootstrap JS no final do corpo -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <!-- Adicionar a API do Google Places Autocomplete -->
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAGDNNmzbgBpZFCF5GNm9nMzLv_2lNeygw&libraries=places"></script>
+
+    <script>
+        // Configurar o autocompletar do Google Places para o campo de endereço
+        const enderecoInput = document.getElementById('endereco');
+        const options = {
+            types: ['geocode'],
+            componentRestrictions: { country: 'BR' } // Restrição para o Brasil
+        };
+        const autocomplete = new google.maps.places.Autocomplete(enderecoInput);
+
+        // Impedir que o formulário seja enviado ao pressionar "Enter" no campo de endereço
+        enderecoInput.addEventListener('keydown', function (e) {
+            if (e.keyCode === 13) {
+                e.preventDefault();
+            }
+        });
+
+        // Lista de endereços adicionados
+        const listaEnderecos = document.getElementById('listaEnderecos');
+
+        // Script para enviar o endereço adicionado para o servidor
+        document.querySelector('form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const endereco = enderecoInput.value.trim();
+
+            if (endereco) {
+                const response = await fetch('/adicionar_endereco', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `endereco=${encodeURIComponent(endereco)}`,
+                });
+
+                if (response.ok) {
+                    enderecoInput.value = '';
+                    const responseData = await response.json();
+                    if (responseData.success) {
+                        // Adicionar o endereço à lista
+                        const enderecoItem = document.createElement('li');
+                        enderecoItem.textContent = endereco;
+                        listaEnderecos.appendChild(enderecoItem);
+                    }
+                }
+            }
+        });
+
+        // Script para calcular a rota ao clicar no botão "Calcular Rota"
+        // Script para calcular a rota ao clicar no botão "Calcular Rota"
+        document.getElementById('calcularRota').addEventListener('click', async () => {
+            // Desabilitar o botão e mostrar a ampulheta
+            const botaoCalcularRota = document.getElementById('calcularRota');
+            botaoCalcularRota.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Calculando Rota...`;
+            botaoCalcularRota.disabled = true;
+
+            // Coletar endereços da lista
+            const enderecoItems = listaEnderecos.getElementsByTagName('li');
+            const enderecosAdicionados = Array.from(enderecoItems).map(item => item.textContent);
+
+            // Enviar uma solicitação para calcular a rota
+            const response = await fetch('/calcular_rota', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ enderecos: enderecosAdicionados }),
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                if (responseData.map_url) {
+                    window.open(responseData.map_url, '_blank');
+                }
+            }
+
+            // Reabilitar o botão e remover a ampulheta após o cálculo
+            botaoCalcularRota.innerHTML = 'Calcular Rota';
+            botaoCalcularRota.disabled = false;
+        });
+
+    </script>
 </body>
 
 </html>
