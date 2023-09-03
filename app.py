@@ -67,11 +67,21 @@ def calcular_rota():
     enderecos = data.get('enderecos', [])
 
     if enderecos:
-        # Gere todas as permutações possíveis dos endereços para encontrar a rota mais rápida
+        # Limitar o número de permutações a 10
+        num_permutacoes_max = 150  # 15 permutações por minuto / 150 permutações = 10 min
+        num_permutacoes = min(num_permutacoes_max, len(enderecos))
+        enderecos = enderecos[:num_permutacoes]
+
         melhor_rota = None
         menor_tempo = float('inf')
 
+        total_permutacoes = 0  # Contagem total de permutações
+        permutacoes_feitas = 0  # Contagem de permutações feitas
+
         for permutacao in permutations(enderecos):
+            total_permutacoes += 1  # Incrementa a contagem total de permutações
+            permutacoes_feitas += 1  # Incrementa a contagem de permutações feitas
+
             waypoints_str = '|'.join([get_coordinates(endereco)
                                      for endereco in permutacao])
             directions_url = f'https://maps.googleapis.com/maps/api/directions/json?origin={origin}&destination={origin}&waypoints={waypoints_str}&key={API_KEY}'
@@ -88,6 +98,12 @@ def calcular_rota():
                 if tempo_rota_total < menor_tempo:
                     menor_tempo = tempo_rota_total
                     melhor_rota = permutacao
+
+            if permutacoes_feitas >= num_permutacoes_max:
+                break  # Sai do loop se o limite de permutações for atingido
+
+        print(f"Contagem total de permutações: {total_permutacoes}")
+        print(f"Permutações feitas: {permutacoes_feitas}")
 
         if melhor_rota:
             waypoints_str = '|'.join([get_coordinates(endereco)
