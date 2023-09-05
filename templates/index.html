@@ -1,130 +1,61 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Rotas</title>
+    <title>Login Page</title>
+    <!-- Include Bootstrap CSS from a CDN (Content Delivery Network) -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* CSS para centralizar o formulário no topo da tela */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 15px;
+        }
+
+        /* Estilizar as caixas de texto centralizadas e menores */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .form-control {
+            width: 200px;
+        }
+    </style>
+    <!-- Adicione esta tag de viewport para otimizar para dispositivos móveis -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">Calculadora de Rotas</h1>
-
-        <form method="POST" class="mb-4">
-            <div class="input-group">
-                <input type="text" id="endereco" name="endereco" class="form-control" placeholder="Digite o endereço">
-                <div class="input-group-append">
-                    <button type="submit" class="btn btn-primary">Adicionar Endereço</button>
-                </div>
+    <div class="container">
+        <h2>Login</h2>
+        <form method="POST" action="/">
+            <div class="form-group">
+                <label for="username">Email:</label>
+                <input type="text" class="form-control" id="username" name="username" required>
             </div>
+            <div class="form-group">
+                <label for="password">Senha:</label>
+                <input type="password" class="form-control" id="password" name="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
         </form>
-
-        <h2>Endereços Adicionados:</h2>
-        <ul id="listaEnderecos">
-            <!-- Lista de endereços adicionados será preenchida dinamicamente aqui -->
-        </ul>
-
-        {% if map_url %}
-        <h2>Rota Otimizada:</h2>
-        <p>Tempo estimado: {{ tempo_rota }}</p>
-        <p>Distância total: {{ quilometragem_total }}</p>
-        <a href="{{ map_url }}" class="btn btn-success" target="_blank">Ver Rota no Google Maps</a>
-        {% endif %}
-
-        <!-- Botão "Calcular Rota" -->
-        <button id="calcularRota" class="btn btn-primary mt-4">Calcular Rota</button>
     </div>
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
-    <!-- Adicionar a API do Google Places Autocomplete -->
-    <script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAGDNNmzbgBpZFCF5GNm9nMzLv_2lNeygw&libraries=places"></script>
-
-    <script>
-        // Configurar o autocompletar do Google Places para o campo de endereço
-        const enderecoInput = document.getElementById('endereco');
-        const options = {
-            types: ['geocode'],
-            componentRestrictions: { country: 'BR' } // Restrição para o Brasil
-        };
-        const autocomplete = new google.maps.places.Autocomplete(enderecoInput);
-
-        // Impedir que o formulário seja enviado ao pressionar "Enter" no campo de endereço
-        enderecoInput.addEventListener('keydown', function (e) {
-            if (e.keyCode === 13) {
-                e.preventDefault();
-            }
-        });
-
-        // Lista de endereços adicionados
-        const listaEnderecos = document.getElementById('listaEnderecos');
-
-        // Script para enviar o endereço adicionado para o servidor
-        document.querySelector('form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const endereco = enderecoInput.value.trim();
-
-            if (endereco) {
-                const response = await fetch('/adicionar_endereco', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `endereco=${encodeURIComponent(endereco)}`,
-                });
-
-                if (response.ok) {
-                    enderecoInput.value = '';
-                    const responseData = await response.json();
-                    if (responseData.success) {
-                        // Adicionar o endereço à lista
-                        const enderecoItem = document.createElement('li');
-                        enderecoItem.textContent = endereco;
-                        listaEnderecos.appendChild(enderecoItem);
-                    }
-                }
-            }
-        });
-
-        // Script para calcular a rota ao clicar no botão "Calcular Rota"
-        // Script para calcular a rota ao clicar no botão "Calcular Rota"
-        document.getElementById('calcularRota').addEventListener('click', async () => {
-            // Desabilitar o botão e mostrar a ampulheta
-            const botaoCalcularRota = document.getElementById('calcularRota');
-            botaoCalcularRota.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Calculando Rota...`;
-            botaoCalcularRota.disabled = true;
-
-            // Coletar endereços da lista
-            const enderecoItems = listaEnderecos.getElementsByTagName('li');
-            const enderecosAdicionados = Array.from(enderecoItems).map(item => item.textContent);
-
-            // Enviar uma solicitação para calcular a rota
-            const response = await fetch('/calcular_rota', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ enderecos: enderecosAdicionados }),
-            });
-
-            if (response.ok) {
-                const responseData = await response.json();
-                if (responseData.map_url) {
-                    window.open(responseData.map_url, '_blank');
-                }
-            }
-
-            // Reabilitar o botão e remover a ampulheta após o cálculo
-            botaoCalcularRota.innerHTML = 'Calcular Rota';
-            botaoCalcularRota.disabled = false;
-        });
-
-    </script>
 </body>
 
 </html>

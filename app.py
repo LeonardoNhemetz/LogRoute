@@ -15,7 +15,7 @@ origin = f"{local_partida[0]},{local_partida[1]}"
 enderecos_adicionados = []
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/cad', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         enderecos = request.form.getlist('endereco')
