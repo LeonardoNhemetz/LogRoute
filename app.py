@@ -1,11 +1,12 @@
+from itertools import permutations
 import requests
 from flask import Flask, request, render_template, jsonify
-from itertools import permutations
+from config import Config
 
 app = Flask(__name__)
 
 # Chave da API do Google Maps (substitua com a sua própria chave)
-API_KEY = 'AIzaSyAGDNNmzbgBpZFCF5GNm9nMzLv_2lNeygw'
+API_KEY = Config.GOOGLE_MAPS_API_KEY
 
 # Coordenadas do ponto de partida (exemplo)
 local_partida = (-23.694179107549026, -46.605410054686395)
@@ -48,9 +49,9 @@ def index():
                 encoded_route = data['routes'][0]['overview_polyline']['points']
                 map_url = f'https://www.google.com/maps/dir/?api=1&origin={origin}&destination={origin}&waypoints={"|".join(waypoints)}'
 
-                return render_template('index.html', tempo_rota=tempo_rota, quilometragem_total=quilometragem_total, map_url=map_url, enderecos_adicionados=enderecos_adicionados)
+                return render_template('index.html', api_key=app.config['GOOGLE_MAPS_API_KEY'], map_url=map_url, enderecos_adicionados=enderecos_adicionados)
 
-    return render_template('index.html', tempo_rota=None, quilometragem_total=None, map_url=None, api_key=API_KEY, enderecos_adicionados=enderecos_adicionados)
+    return render_template('cad.html', tempo_rota=None, quilometragem_total=None, map_url=None, api_key=API_KEY, enderecos_adicionados=enderecos_adicionados)
 
 
 @app.route('/adicionar_endereco', methods=['POST'])
